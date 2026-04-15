@@ -11,7 +11,7 @@ st.caption("Phát triển bởi Huỳnh Phong - Khoa Toán Tin học")
 def print_dictionary_st(tableau, basis, n, m, title):
     st.subheader(title)
     
-    # Hiển thị hàm mục tiêu
+    # 1. Xử lý hàm mục tiêu Z
     z_rhs = -tableau[m, -1]
     z_terms = []
     for j in range(n + m):
@@ -22,12 +22,19 @@ def print_dictionary_st(tableau, basis, n, m, title):
                 sign = "+" if coef > 0 else "-"
                 z_terms.append(f"{sign} {abs(coef):.3g}{var_name}")
     
-    z_expr = " ".join(z_terms) if z_terms else "+ 0"
-    if z_expr.startswith("+ "): z_expr = z_expr[2:]
-    st.latex(f"Z = {z_rhs:.3g} {z_expr}")
+    z_expr = " ".join(z_terms)
+    
+    # Sửa lỗi dính số: Nếu hằng số = 0 thì ẩn đi, nếu khác 0 thì ghép nối có dấu
+    if abs(z_rhs) < 1e-9:
+        if z_expr.startswith("+ "): 
+            z_expr = z_expr[2:] # Cắt bỏ dấu + ở đầu nếu hằng số = 0
+        z_line = f"Z &= {z_expr if z_expr else '0'}"
+    else:
+        z_line = f"Z &= {z_rhs:.3g} {z_expr}"
+        
+    latex_lines = [z_line]
 
-    # Hiển thị các ràng buộc
-    cols = st.columns(2)
+    # 2. Xử lý các dòng ràng buộc (bỏ chia cột columns)
     for i in range(m):
         b_val = tableau[i, -1]
         var_idx = basis[i]
@@ -42,10 +49,23 @@ def print_dictionary_st(tableau, basis, n, m, title):
                     sign = "+" if coef > 0 else "-"
                     terms.append(f"{sign} {abs(coef):.3g}{name}")
         
-        expr = " ".join(terms) if terms else "+ 0"
-        if expr.startswith("+ "): expr = expr[2:]
-        with cols[i % 2]:
-            st.latex(f"{var_name} = {b_val:.3g} {expr}")
+        expr = " ".join(terms)
+        
+        # Định dạng tương tự hàm Z cho các ràng buộc
+        if abs(b_val) < 1e-9:
+            if expr.startswith("+ "): 
+                expr = expr[2:]
+            line = f"{var_name} &= {expr if expr else '0'}"
+        else:
+            line = f"{var_name} &= {b_val:.3g} {expr}"
+            
+        latex_lines.append(line)
+
+    # 3. Gom tất cả vào môi trường aligned của LaTeX để căn thẳng hàng dấu '='
+    latex_str = "\\begin{aligned}\n" + " \\\\\n".join(latex_lines) + "\n\\end{aligned}"
+    
+    # In ra Streamlit
+    st.latex(latex_str)
 
 # --- GIAO DIỆN NHẬP LIỆU BÊN SIDEBAR ---
 st.sidebar.header("Cấu hình bài toán")
