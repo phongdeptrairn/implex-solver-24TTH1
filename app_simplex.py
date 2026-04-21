@@ -152,27 +152,6 @@ if st.button("Bắt đầu giải thuật"):
             iteration = 1
             max_iter = 50
             while iteration <= max_iter:
-                z_row = tableau[m, :-1] 
-                neg_indices = np.where(z_row < -1e-9)[0] 
-                
-                if len(neg_indices) == 0:
-                    st.balloons()
-                    st.write("### ✨ ĐÃ ĐẠT TỐI ƯU!")
-                    break
-                    
-                col_in = neg_indices[0] if rule == 'bland' else neg_indices[np.argmin(z_row[neg_indices])]
-                col_vals = tableau[:m, col_in]
-                pos_indices = np.where(col_vals > 1e-9)[0]
-                
-                if len(pos_indices) == 0:
-                    st.error("Bài toán không giới hạn (Unbounded).")
-                    break
-                    
-                ratios = tableau[pos_indices, -1] / tableau[pos_indices, col_in]
-                min_ratio = np.min(ratios)
-                candidates = pos_indices[np.where(ratios == min_ratio)[0]]
-                row_out = candidates[np.argmin([basis[i] for i in candidates])] if rule == 'bland' else candidates[0]
-                
                 # Phép xoay Gauss
                 pivot_val = tableau[row_out, col_in]
                 tableau[row_out, :] /= pivot_val
@@ -180,10 +159,17 @@ if st.button("Bắt đầu giải thuật"):
                     if i != row_out:
                         tableau[i, :] -= tableau[i, col_in] * tableau[row_out, :]
                 
-                basis[row_out] = col_in
+                # --- ĐOẠN ĐÃ ĐƯỢC SỬA LỖI ---
+                # 1. Ghi nhận chỉ số biến bị đẩy ra (col_out) TRƯỚC khi cập nhật
+                col_out = basis[row_out] 
                 
+                # 2. Đặt tên biến vào và ra
                 var_in_name = f"x_{col_in+1}" if col_in < n else f"W_{col_in-n+1}"
-                var_out_name = f"x_{basis[row_out]+1}" if basis[row_out] < n else f"W_{basis[row_out]-n+1}"
+                var_out_name = f"x_{col_out+1}" if col_out < n else f"W_{col_out-n+1}"
+                
+                # 3. Cập nhật lại danh sách cơ sở
+                basis[row_out] = col_in
+                # -----------------------------
                 
                 print_dictionary_st(tableau, basis, n, m, f"Bước lặp {iteration} (Vào: ${var_in_name}$ | Ra: ${var_out_name}$)")
                 iteration += 1
