@@ -72,10 +72,17 @@ with col_c:
     c_raw = st.text_input("Hệ số Min(Z) (cách nhau dấu cách)", "3 -2")
 
 with col_a:
-    a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';')", "1 1\n2 1") # Hỗ trợ nhập xuống dòng hoặc dấu chấm phẩy
+    a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';')", "1 1\n2 1")
 
 with col_b:
     b_raw = st.text_input("Vectơ vế phải b (cách nhau bởi ';')", "4; 5")
+
+st.write("### 2. Tùy chọn thuật toán")
+rule_choice = st.radio(
+    "Chọn quy tắc xoay (Pivot Rule):",
+    options=["Tự động (Bland nếu b có số 0, ngược lại Dantzig)", "Dantzig (Giảm nhiều nhất)", "Bland (Chống xoay vòng)"],
+    index=0
+)
 
 # --- THỰC THI GIẢI ---
 if st.button("Bắt đầu giải thuật"):
@@ -95,7 +102,7 @@ if st.button("Bắt đầu giải thuật"):
 
         # KIỂM TRA ĐIỀU KIỆN (VALIDATION)
         if A.shape != (m, n):
-            st.error(f"🚨 **Lỗi kích thước ma trận!**\n- Phát hiện **{n}** biến quyết định (từ hàm Z).\n- Phát hiện **{m}** ràng buộc (từ vectơ b).\n- Nhưng ma trận A lại có kích thước {A.shape} (cần là ({m}, {n})).\n\nVui lòng kiểm tra lại hệ số bạn vừa nhập.")
+            st.error(f"🚨 **Lỗi kích thước ma trận!**\n- Phát hiện **{n}** biến quyết định.\n- Phát hiện **{m}** ràng buộc.\n- Kích thước ma trận A là {A.shape} (cần là ({m}, {n})).")
         else:
             st.success(f"✅ Đã tự động nhận diện: **{n}** biến quyết định và **{m}** ràng buộc.")
             
@@ -107,8 +114,15 @@ if st.button("Bắt đầu giải thuật"):
             tableau[m, :n] = c 
             basis = list(range(n, n + m)) 
             
-            rule = 'bland' if np.any(b == 0) else 'dantzig'
-            st.info(f"Kích hoạt quy tắc xoay: **{rule.upper()}**")
+            # Lựa chọn quy tắc dựa trên input người dùng
+            if rule_choice == "Dantzig (Giảm nhiều nhất)":
+                rule = 'dantzig'
+            elif rule_choice == "Bland (Chống xoay vòng)":
+                rule = 'bland'
+            else:
+                rule = 'bland' if np.any(b == 0) else 'dantzig'
+                
+            st.info(f"Đang sử dụng quy tắc xoay: **{rule.upper()}**")
 
             print_dictionary_st(tableau, basis, n, m, "Từ điển khởi tạo")
 
@@ -145,22 +159,26 @@ if st.button("Bắt đầu giải thuật"):
                 
                 basis[row_out] = col_in
                 
-                # Xác định tên biến vào/ra để in ra màn hình
                 var_in_name = f"x_{col_in+1}" if col_in < n else f"W_{col_in-n+1}"
                 var_out_name = f"x_{basis[row_out]+1}" if basis[row_out] < n else f"W_{basis[row_out]-n+1}"
                 
                 print_dictionary_st(tableau, basis, n, m, f"Bước lặp {iteration} (Vào: ${var_in_name}$ | Ra: ${var_out_name}$)")
                 iteration += 1
 
-            # Trích xuất kết quả cuối cùng
+            # Trích xuất kết quả cuối cùng theo hàng dọc
             st.divider()
             st.write("## 🏆 Kết quả tối ưu")
-            st.metric("Giá trị Min(Z)", f"{-tableau[m, -1]:.4g}")
             
-            sol_cols = st.columns(n)
+            optimal_value = -tableau[m, -1]
+            
+            # Đưa Z và các x vào chung một khối aligned
+            result_lines = [f"\\min(Z) &= {optimal_value:.4g}"]
             for i in range(n):
                 val = tableau[np.where(np.array(basis) == i)[0][0], -1] if i in basis else 0
-                sol_cols[i].latex(f"x_{{{i+1}}} = {val:.4g}")
+                result_lines.append(f"x_{{{i+1}}} &= {val:.4g}")
+            
+            result_latex = "\\begin{aligned}\n" + " \\\\\n".join(result_lines) + "\n\\end{aligned}"
+            st.latex(result_latex)
 
     except ValueError:
         st.error("🚨 Dữ liệu nhập vào chứa ký tự không hợp lệ. Vui lòng chỉ nhập số, dấu cách và dấu chấm phẩy (;).")
