@@ -13,7 +13,7 @@ def to_frac(val, is_coef=False):
     if abs(val) < 1e-9:
         return "0"
     
-    # Ép kiểu float về phân số, giới hạn mẫu số để tránh các sai số như 1/3 ~ 0.33333333333
+    # Ép kiểu float về phân số, giới hạn mẫu số để tránh sai số
     f = Fraction(val).limit_denominator(1000)
     
     if is_coef:
@@ -29,6 +29,7 @@ def to_frac(val, is_coef=False):
 
 # --- CÁC HÀM LOGIC ---
 def print_dictionary_st(tableau, basis, n, m, title):
+    """Hàm in từ điển đơn hình ra màn hình bằng LaTeX"""
     st.subheader(title)
     
     # 1. Xử lý hàm mục tiêu Z
@@ -41,10 +42,15 @@ def print_dictionary_st(tableau, basis, n, m, title):
                 var_name = f"x_{{{j+1}}}" if j < n else f"W_{{{j-n+1}}}"
                 sign = "+" if coef > 0 else "-"
                 coef_str = to_frac(coef, is_coef=True)
-                z_terms.append(f"{sign} {coef_str}{var_name}")
+                # Ẩn hệ số 1 nếu có (ví dụ + 1x -> + x)
+                if coef_str == "1":
+                    z_terms.append(f"{sign} {var_name}")
+                else:
+                    z_terms.append(f"{sign} {coef_str}{var_name}")
     
     z_expr = " ".join(z_terms)
     
+    # Sắp xếp hiển thị vế phải của Z
     if abs(z_rhs) < 1e-9:
         if z_expr.startswith("+ "): 
             z_expr = z_expr[2:] 
@@ -68,7 +74,10 @@ def print_dictionary_st(tableau, basis, n, m, title):
                     name = f"x_{{{j+1}}}" if j < n else f"W_{{{j-n+1}}}"
                     sign = "+" if coef > 0 else "-"
                     coef_str = to_frac(coef, is_coef=True)
-                    terms.append(f"{sign} {coef_str}{name}")
+                    if coef_str == "1":
+                        terms.append(f"{sign} {name}")
+                    else:
+                        terms.append(f"{sign} {coef_str}{name}")
         
         expr = " ".join(terms)
         
@@ -87,7 +96,7 @@ def print_dictionary_st(tableau, basis, n, m, title):
 
 # --- GIAO DIỆN NHẬP LIỆU ---
 st.write("### 1. Nhập hệ số bài toán")
-st.info("Mặc định bài toán là Min Z và các ràng buộc là dấu ≤. Chương trình sẽ tự động nhận diện số biến và số ràng buộc.")
+st.info("Mặc định bài toán là Min(Z) và các ràng buộc là dấu ≤. Không cần nhập số biến hay số ràng buộc, hệ thống sẽ tự nhận diện.")
 
 col_c, col_a, col_b = st.columns([1, 2, 1])
 
@@ -95,7 +104,7 @@ with col_c:
     c_raw = st.text_input("Hệ số Min(Z) (cách nhau dấu cách)", "3 -2")
 
 with col_a:
-    a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';')", "1 1\n2 1")
+    a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';' hoặc Enter)", "1 1\n2 1")
 
 with col_b:
     b_raw = st.text_input("Vectơ vế phải b (cách nhau dấu cách)", "4 5")
@@ -110,20 +119,19 @@ rule_choice = st.radio(
 # --- THỰC THI GIẢI ---
 if st.button("Bắt đầu giải thuật"):
     try:
-        # Chuyển đổi dữ liệu chuỗi sang numpy array
+        # 1. CHUYỂN ĐỔI DỮ LIỆU ĐẦU VÀO
         c = np.array([float(x) for x in c_raw.split()])
         b = np.array([float(x) for x in b_raw.split()])
         
-        # Xử lý ma trận A (chấp nhận cả dấu ';' hoặc xuống dòng)
         a_rows_raw = a_raw.replace('\n', ';').split(';')
         rows = [r.strip() for r in a_rows_raw if r.strip()]
         A = np.array([[float(x) for x in r.split()] for r in rows])
 
-        # TỰ ĐỘNG NHẬN DIỆN KÍCH THƯỚC
+        # 2. TỰ ĐỘNG NHẬN DIỆN KÍCH THƯỚC
         n = len(c)
         m = len(b)
 
-        # KIỂM TRA ĐIỀU KIỆN (VALIDATION)
+        # 3. KIỂM TRA ĐIỀU KIỆN (VALIDATION)
         if A.shape != (m, n):
             st.error(f"🚨 **Lỗi kích thước ma trận!**\n- Phát hiện **{n}** biến quyết định.\n- Phát hiện **{m}** ràng buộc.\n- Kích thước ma trận A là {A.shape} (cần là ({m}, {n})).")
         else:
@@ -137,7 +145,7 @@ if st.button("Bắt đầu giải thuật"):
             tableau[m, :n] = c 
             basis = list(range(n, n + m)) 
             
-            # Lựa chọn quy tắc dựa trên input người dùng
+            # Lựa chọn quy tắc dựa trên input
             if rule_choice == "Dantzig (Giảm nhiều nhất)":
                 rule = 'dantzig'
             elif rule_choice == "Bland (Chống xoay vòng)":
@@ -149,9 +157,38 @@ if st.button("Bắt đầu giải thuật"):
 
             print_dictionary_st(tableau, basis, n, m, "Từ điển khởi tạo")
 
+            # 4. VÒNG LẶP ĐƠN HÌNH
             iteration = 1
             max_iter = 50
             while iteration <= max_iter:
+                z_row = tableau[m, :-1] 
+                neg_indices = np.where(z_row < -1e-9)[0] 
+                
+                if len(neg_indices) == 0:
+                    st.balloons()
+                    st.write("### ✨ ĐÃ ĐẠT TỐI ƯU!")
+                    break
+                    
+                # Chọn biến vào (Entering variable)
+                col_in = neg_indices[0] if rule == 'bland' else neg_indices[np.argmin(z_row[neg_indices])]
+                col_vals = tableau[:m, col_in]
+                pos_indices = np.where(col_vals > 1e-9)[0]
+                
+                if len(pos_indices) == 0:
+                    st.error("Bài toán không giới hạn (Unbounded).")
+                    break
+                    
+                # Chọn biến ra (Leaving variable)
+                ratios = tableau[pos_indices, -1] / tableau[pos_indices, col_in]
+                min_ratio = np.min(ratios)
+                candidates = pos_indices[np.where(ratios == min_ratio)[0]]
+                row_out = candidates[np.argmin([basis[i] for i in candidates])] if rule == 'bland' else candidates[0]
+                
+                # Ghi nhận tên biến vào / ra TRƯỚC khi cập nhật cơ sở (Fix lỗi tên biến)
+                col_out = basis[row_out]
+                var_in_name = f"x_{{{col_in+1}}}" if col_in < n else f"W_{{{col_in-n+1}}}"
+                var_out_name = f"x_{{{col_out+1}}}" if col_out < n else f"W_{{{col_out-n+1}}}"
+                
                 # Phép xoay Gauss
                 pivot_val = tableau[row_out, col_in]
                 tableau[row_out, :] /= pivot_val
@@ -159,28 +196,20 @@ if st.button("Bắt đầu giải thuật"):
                     if i != row_out:
                         tableau[i, :] -= tableau[i, col_in] * tableau[row_out, :]
                 
-                # --- ĐOẠN ĐÃ ĐƯỢC SỬA LỖI ---
-                # 1. Ghi nhận chỉ số biến bị đẩy ra (col_out) TRƯỚC khi cập nhật
-                col_out = basis[row_out] 
-                
-                # 2. Đặt tên biến vào và ra
-                var_in_name = f"x_{col_in+1}" if col_in < n else f"W_{col_in-n+1}"
-                var_out_name = f"x_{col_out+1}" if col_out < n else f"W_{col_out-n+1}"
-                
-                # 3. Cập nhật lại danh sách cơ sở
+                # Cập nhật danh sách biến cơ sở
                 basis[row_out] = col_in
-                # -----------------------------
                 
+                # In từ điển của bước lặp
                 print_dictionary_st(tableau, basis, n, m, f"Bước lặp {iteration} (Vào: ${var_in_name}$ | Ra: ${var_out_name}$)")
                 iteration += 1
 
-            # Trích xuất kết quả cuối cùng theo hàng dọc
+            # 5. IN KẾT QUẢ CUỐI CÙNG
             st.divider()
             st.write("## 🏆 Kết quả tối ưu")
             
             optimal_value = -tableau[m, -1]
             
-            # Đưa Z và các x vào chung một khối aligned
+            # Đưa Z và các biến x vào chung một khối aligned LaTeX
             result_lines = [f"\\min(Z) &= {to_frac(optimal_value)}"]
             for i in range(n):
                 val = tableau[np.where(np.array(basis) == i)[0][0], -1] if i in basis else 0
