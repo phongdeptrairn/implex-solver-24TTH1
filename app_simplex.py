@@ -75,7 +75,8 @@ with col_a:
     a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';')", "1 1\n2 1")
 
 with col_b:
-    b_raw = st.text_input("Vectơ vế phải b (cách nhau bởi ';')", "4; 5")
+    # Đã sửa thành nhập cách nhau bằng dấu cách
+    b_raw = st.text_input("Vectơ vế phải b (cách nhau dấu cách)", "4 5")
 
 st.write("### 2. Tùy chọn thuật toán")
 rule_choice = st.radio(
@@ -89,7 +90,9 @@ if st.button("Bắt đầu giải thuật"):
     try:
         # Chuyển đổi dữ liệu chuỗi sang numpy array
         c = np.array([float(x) for x in c_raw.split()])
-        b = np.array([float(x) for x in b_raw.replace('\n', ';').split(';') if x.strip()])
+        
+        # Đã sửa để xử lý chuỗi b bằng cách cắt theo khoảng trắng (tương tự c)
+        b = np.array([float(x) for x in b_raw.split()])
         
         # Xử lý ma trận A (chấp nhận cả dấu ';' hoặc xuống dòng)
         a_rows_raw = a_raw.replace('\n', ';').split(';')
@@ -181,6 +184,6 @@ if st.button("Bắt đầu giải thuật"):
             st.latex(result_latex)
 
     except ValueError:
-        st.error("🚨 Dữ liệu nhập vào chứa ký tự không hợp lệ. Vui lòng chỉ nhập số, dấu cách và dấu chấm phẩy (;).")
+        st.error("🚨 Dữ liệu nhập vào chứa ký tự không hợp lệ. Vui lòng kiểm tra lại hệ số bạn vừa nhập.")
     except Exception as e:
         st.error(f"🚨 Đã xảy ra lỗi hệ thống: {e}")
