@@ -1,10 +1,31 @@
 import streamlit as st
 import numpy as np
+from fractions import Fraction
 
 # Thiết lập giao diện
 st.set_page_config(page_title="Simplex Solver - Huỳnh Phong", layout="wide")
 st.title("🧮 Trình giải thuật toán Đơn hình (Simplex Method)")
 st.caption("Phát triển bởi Huỳnh Phong - Khoa Toán Tin học")
+
+# --- HÀM HỖ TRỢ XUẤT PHÂN SỐ LATEX ---
+def to_frac(val, is_coef=False):
+    """Hàm chuyển đổi số thập phân sang chuỗi phân số LaTeX"""
+    if abs(val) < 1e-9:
+        return "0"
+    
+    # Ép kiểu float về phân số, giới hạn mẫu số để tránh các sai số như 1/3 ~ 0.33333333333
+    f = Fraction(val).limit_denominator(1000)
+    
+    if is_coef:
+        f = Fraction(abs(val)).limit_denominator(1000)
+    
+    sign_str = "-" if f.numerator < 0 and not is_coef else ""
+    num = abs(f.numerator)
+    den = f.denominator
+    
+    if den == 1:
+        return f"{sign_str}{num}"
+    return f"{sign_str}\\dfrac{{{num}}}{{{den}}}"
 
 # --- CÁC HÀM LOGIC ---
 def print_dictionary_st(tableau, basis, n, m, title):
@@ -19,7 +40,8 @@ def print_dictionary_st(tableau, basis, n, m, title):
             if abs(coef) > 1e-9:
                 var_name = f"x_{{{j+1}}}" if j < n else f"W_{{{j-n+1}}}"
                 sign = "+" if coef > 0 else "-"
-                z_terms.append(f"{sign} {abs(coef):.3g}{var_name}")
+                coef_str = to_frac(coef, is_coef=True)
+                z_terms.append(f"{sign} {coef_str}{var_name}")
     
     z_expr = " ".join(z_terms)
     
@@ -28,7 +50,7 @@ def print_dictionary_st(tableau, basis, n, m, title):
             z_expr = z_expr[2:] 
         z_line = f"Z &= {z_expr if z_expr else '0'}"
     else:
-        z_line = f"Z &= {z_rhs:.3g} {z_expr}"
+        z_line = f"Z &= {to_frac(z_rhs)} {z_expr}"
         
     latex_lines = [z_line]
 
@@ -45,7 +67,8 @@ def print_dictionary_st(tableau, basis, n, m, title):
                 if abs(coef) > 1e-9:
                     name = f"x_{{{j+1}}}" if j < n else f"W_{{{j-n+1}}}"
                     sign = "+" if coef > 0 else "-"
-                    terms.append(f"{sign} {abs(coef):.3g}{name}")
+                    coef_str = to_frac(coef, is_coef=True)
+                    terms.append(f"{sign} {coef_str}{name}")
         
         expr = " ".join(terms)
         
@@ -54,7 +77,7 @@ def print_dictionary_st(tableau, basis, n, m, title):
                 expr = expr[2:]
             line = f"{var_name} &= {expr if expr else '0'}"
         else:
-            line = f"{var_name} &= {b_val:.3g} {expr}"
+            line = f"{var_name} &= {to_frac(b_val)} {expr}"
             
         latex_lines.append(line)
 
@@ -75,7 +98,6 @@ with col_a:
     a_raw = st.text_area("Ma trận A (dòng cách nhau bởi ';')", "1 1\n2 1")
 
 with col_b:
-    # Đã sửa thành nhập cách nhau bằng dấu cách
     b_raw = st.text_input("Vectơ vế phải b (cách nhau dấu cách)", "4 5")
 
 st.write("### 2. Tùy chọn thuật toán")
@@ -90,8 +112,6 @@ if st.button("Bắt đầu giải thuật"):
     try:
         # Chuyển đổi dữ liệu chuỗi sang numpy array
         c = np.array([float(x) for x in c_raw.split()])
-        
-        # Đã sửa để xử lý chuỗi b bằng cách cắt theo khoảng trắng (tương tự c)
         b = np.array([float(x) for x in b_raw.split()])
         
         # Xử lý ma trận A (chấp nhận cả dấu ';' hoặc xuống dòng)
@@ -175,10 +195,10 @@ if st.button("Bắt đầu giải thuật"):
             optimal_value = -tableau[m, -1]
             
             # Đưa Z và các x vào chung một khối aligned
-            result_lines = [f"\\min(Z) &= {optimal_value:.4g}"]
+            result_lines = [f"\\min(Z) &= {to_frac(optimal_value)}"]
             for i in range(n):
                 val = tableau[np.where(np.array(basis) == i)[0][0], -1] if i in basis else 0
-                result_lines.append(f"x_{{{i+1}}} &= {val:.4g}")
+                result_lines.append(f"x_{{{i+1}}} &= {to_frac(val)}")
             
             result_latex = "\\begin{aligned}\n" + " \\\\\n".join(result_lines) + "\n\\end{aligned}"
             st.latex(result_latex)
